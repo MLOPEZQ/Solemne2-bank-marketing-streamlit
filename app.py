@@ -285,32 +285,33 @@ with tab_pred:
         submitted = st.form_submit_button("✅ Predecir")
 
     if submitted:
-        try:
-            input_df = pd.DataFrame([user_input])[feature_names]
-            proba_yes = float(pipe.predict_proba(input_df)[0, 1])
-            pred = int(pipe.predict(input_df)[0])
-            label = payload["label_map"][pred]
+    try:
+        input_df = pd.DataFrame([user_input])[feature_names]
 
-            st.markdown("### Resultado")
-st.write(f"**Predicción final:** `y = {label}`")
-st.write(f"**Probabilidad asociada (yes): {proba_yes:.3f}**")
+        proba_yes = float(pipe.predict_proba(input_df)[0, 1])
+        pred = int(pipe.predict(input_df)[0])
+        label = payload["label_map"][pred]
 
-# Frase interpretativa
-if proba_yes >= 0.70:
-    st.success("🟢 Alta probabilidad de suscripción al depósito a plazo.")
-elif proba_yes >= 0.40:
-    st.warning("🟡 Probabilidad media de suscripción. Depende de condiciones adicionales.")
-else:
-    st.error("🔴 Baja probabilidad de suscripción al depósito a plazo.")
+        st.markdown("### Resultado")
+        st.write(f"**Predicción final:** `y = {label}`")
+        st.write(f"**Probabilidad asociada (yes): {proba_yes:.3f}**")
 
-st.progress(min(max(proba_yes, 0.0), 1.0))
-st.caption("La barra representa la probabilidad estimada de suscripción (yes).")
+        # Frase interpretativa
+        if proba_yes >= 0.70:
+            st.success("🟢 Alta probabilidad de suscripción al depósito a plazo.")
+        elif proba_yes >= 0.40:
+            st.warning("🟡 Probabilidad media de suscripción. Depende de condiciones adicionales.")
+        else:
+            st.error("🔴 Baja probabilidad de suscripción al depósito a plazo.")
 
-        except Exception as e:
-            st.error(
-                "Ocurrió un error al predecir. Revisa que el dataset y el modelo correspondan a las mismas columnas."
-            )
-            st.exception(e)
+        st.progress(min(max(proba_yes, 0.0), 1.0))
+        st.caption("La barra representa la probabilidad estimada de suscripción (yes).")
+
+    except Exception as e:
+        st.error(
+            "Ocurrió un error al predecir. Revisa que el dataset y el modelo correspondan a las mismas columnas."
+        )
+        st.exception(e)
 
 st.caption(
     "Modelo cargado desde `model.joblib` y usado por la app. (Se excluye `duration` para evitar data leakage)."
