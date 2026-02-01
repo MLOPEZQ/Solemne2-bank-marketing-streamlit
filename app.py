@@ -292,11 +292,19 @@ with tab_pred:
             label = payload["label_map"][pred]
 
             st.markdown("### Resultado")
-            st.write(f"**Predicción final:** `y = {label}`")
-            st.write(f"**Probabilidad asociada (yes): {proba_yes:.3f}**")
+st.write(f"**Predicción final:** `y = {label}`")
+st.write(f"**Probabilidad asociada (yes): {proba_yes:.3f}**")
 
-            st.progress(min(max(proba_yes, 0.0), 1.0))
-            st.caption("La barra representa la probabilidad de suscripción (yes).")
+# Frase interpretativa
+if proba_yes >= 0.70:
+    st.success("🟢 Alta probabilidad de suscripción al depósito a plazo.")
+elif proba_yes >= 0.40:
+    st.warning("🟡 Probabilidad media de suscripción. Depende de condiciones adicionales.")
+else:
+    st.error("🔴 Baja probabilidad de suscripción al depósito a plazo.")
+
+st.progress(min(max(proba_yes, 0.0), 1.0))
+st.caption("La barra representa la probabilidad estimada de suscripción (yes).")
 
         except Exception as e:
             st.error(
