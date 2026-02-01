@@ -154,6 +154,25 @@ pipe = payload["pipeline"]
 # =========================================
 st.title("📞 Bank Marketing – Clasificador de Suscripción (y)")
 
+with st.expander("ℹ️ Descripción del modelo y variables utilizadas"):
+    st.markdown(
+        """
+**Modelo predictivo:**  
+Se utiliza un modelo de **Regresión Logística**, entrenado sobre el dataset *Bank Marketing*, 
+con el objetivo de predecir la suscripción a un depósito a plazo (`y`).
+
+**Variables utilizadas:**  
+El modelo considera variables demográficas del cliente (edad, ocupación, estado civil, educación),
+variables asociadas a la campaña de marketing (número de contactos, contacto previo y resultado de campañas anteriores)
+y variables macroeconómicas (indicadores económicos y tasas de interés).
+
+**Justificación:**  
+Si bien en un escenario productivo podría utilizarse un subconjunto reducido de variables,
+para efectos académicos se emplea el conjunto completo de variables relevantes del dataset,
+permitiendo una evaluación integral del desempeño del clasificador.
+"""
+    )
+
 with st.expander("ℹ️ Contexto (CRISP-DM)", expanded=False):
     st.markdown(
         f"""
