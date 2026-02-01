@@ -10,7 +10,14 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
+    classification_report,
+)
 
 # =========================================
 # CONFIG
@@ -22,6 +29,9 @@ MODEL_PATH = "model.joblib"
 
 POS_LABEL = "yes"   # clase positiva del negocio
 NEG_LABEL = "no"
+
+# Variables que deben ser enteras (conteos)
+INT_FEATURES = {"age", "campaign", "pdays", "previous"}
 
 # =========================================
 # TRAIN / LOAD
@@ -55,9 +65,8 @@ def train_and_save_model(data_path: str = DATA_PATH, model_path: str = MODEL_PAT
         ]
     )
 
-    # Simple, robusto y explicable para Solemne (y funciona muy bien con OHE)
+    # Modelo simple + explicable (ideal para el curso) y robusto ante desbalance
     model = LogisticRegression(max_iter=2000, class_weight="balanced", solver="liblinear")
-
     pipeline = Pipeline([("preprocess", preprocess), ("model", model)])
     pipeline.fit(X_train, y_train)
 
@@ -109,24 +118,31 @@ def load_or_train():
 
 
 # =========================================
-# SIDEBAR (guía para rúbrica)
+# SIDEBAR (profe-friendly)
 # =========================================
 st.sidebar.title("Solemne 2 (40%)")
 st.sidebar.caption("Taller de Aplicaciones – Bank Marketing")
+
 st.sidebar.markdown(
     """
-**Rúbrica Streamlit (100%):**
-- Visualización clara de resultados del clasificador  
-  *(accuracy, precision, recall, F1, matriz de confusión)*  
-- Interactividad: ingresar variables y probar el modelo  
-- Mostrar predicción final **yes/no** + probabilidad asociada  
+**Objetivo:** Publicar los datos y resultados del clasificador desarrollado para predecir  
+si un cliente se suscribirá a un depósito a plazo (**y: yes/no**).
+
+**Requisitos (Streamlit):**
+- Mostrar métricas: accuracy, precision, recall, F1-score
+- Mostrar matriz de confusión
+- Permitir ingresar variables y probar el modelo
+- Mostrar predicción final (yes/no) + probabilidad
 """
 )
 
+# =========================================
+# VALIDACIONES BÁSICAS
+# =========================================
 if not os.path.exists(DATA_PATH):
     st.error(
-        f"No se encontró `{DATA_PATH}` en el proyecto. "
-        "Súbelo al repo (misma carpeta que app.py)."
+        f"No se encontró `{DATA_PATH}` en el proyecto.\n\n"
+        "✅ Solución: sube `bank-additional-full.csv` al repo (misma carpeta que `app.py`)."
     )
     st.stop()
 
@@ -138,15 +154,16 @@ pipe = payload["pipeline"]
 # =========================================
 st.title("📞 Bank Marketing – Clasificador de Suscripción (y)")
 
-with st.expander("ℹ️ Contexto (CRISP-DM: Business Understanding / Data Understanding / Evaluation)", expanded=False):
+with st.expander("ℹ️ Contexto (CRISP-DM)", expanded=False):
     st.markdown(
         f"""
-**Objetivo del modelo:** predecir si el cliente se suscribirá a un depósito a plazo  
-**Target:** `y` ( {POS_LABEL} = se suscribe, {NEG_LABEL} = no se suscribe )
+**Business Understanding:** predecir suscripción a depósito a plazo para mejorar focalización de campañas.  
+**Data Understanding:** dataset `bank-additional-full` (UCI).  
+**Evaluation:** métricas sobre conjunto de prueba (*test 20%*): accuracy, precision, recall, F1 + matriz de confusión.
 
-**Evaluación:** métricas sobre *test (20%)*: accuracy, precision, recall, F1 + matriz de confusión.
+**Target:** `y` → {POS_LABEL} (se suscribe), {NEG_LABEL} (no se suscribe)
 
-**Importante:** se excluye `duration` para evitar *data leakage* (la duración se conoce después de la llamada).
+**Nota:** se excluye `duration` para evitar *data leakage* (la duración se conoce después de la llamada).
 """
     )
 
@@ -200,11 +217,13 @@ with tab_eval:
         else:
             st.info("No se encontró `test_report` en el modelo. Reentrena para generarlo.")
 
-    with st.expander("🔁 Reentrenar modelo (opcional)"):
-        st.write("Si actualizaste el dataset en el repo, puedes reentrenar y sobrescribir `model.joblib`.")
+    with st.expander("🔁 Reentrenar modelo (opcional)", expanded=False):
+        st.write(
+            "Si actualizaste el dataset en el repo, puedes reentrenar y sobrescribir `model.joblib`."
+        )
         if st.button("Reentrenar y guardar model.joblib"):
             payload = train_and_save_model(DATA_PATH, MODEL_PATH)
-            st.success("Listo: modelo reentrenado y guardado. Vuelve a cargar la página para ver cambios.")
+            st.success("Listo: modelo reentrenado y guardado. Recarga la página para ver cambios.")
 
 # =========================================
 # TAB 2: Prediction form
@@ -216,7 +235,6 @@ with tab_pred:
     num_ranges = payload.get("numeric_ranges", {})
     feature_names = payload["feature_names"]
 
-    # Usamos form para que sea intuitivo (no recalcula cada cambio)
     with st.form("predict_form", clear_on_submit=False):
         st.markdown("#### Variables categóricas")
         user_input = {}
@@ -230,14 +248,38 @@ with tab_pred:
         st.markdown("#### Variables numéricas")
         for c in payload["numeric_cols"]:
             r = num_ranges.get(c, {"min": 0.0, "max": 1.0, "median": 0.0})
-            step = (float(r["max"] - r["min"]) / 100.0) if float(r["max"] - r["min"]) > 0 else 1.0
-            user_input[c] = st.number_input(
-                c,
-                min_value=float(r["min"]),
-                max_value=float(r["max"]),
-                value=float(r["median"]),
-                step=step,
-            )
+
+            # Enteros donde corresponde
+            if c in INT_FEATURES:
+                min_v = int(np.floor(r["min"]))
+                max_v = int(np.ceil(r["max"]))
+                val = int(round(r["median"]))
+                user_input[c] = st.number_input(
+                    c,
+                    min_value=min_v,
+                    max_value=max_v,
+                    value=val,
+                    step=1,
+                )
+            else:
+                # Decimales (macroeconómicas)
+                min_v = float(r["min"])
+                max_v = float(r["max"])
+                val = float(r["median"])
+
+                # step razonable para floats
+                span = max_v - min_v
+                step = float(span / 200.0) if span > 0 else 0.1
+                step = max(step, 0.01)
+
+                user_input[c] = st.number_input(
+                    c,
+                    min_value=min_v,
+                    max_value=max_v,
+                    value=val,
+                    step=step,
+                    format="%.4f",
+                )
 
         st.divider()
         submitted = st.form_submit_button("✅ Predecir")
@@ -253,12 +295,15 @@ with tab_pred:
             st.write(f"**Predicción final:** `y = {label}`")
             st.write(f"**Probabilidad asociada (yes): {proba_yes:.3f}**")
 
-            # Indicador visual simple (sin librerías extra)
             st.progress(min(max(proba_yes, 0.0), 1.0))
-            st.caption("La barra muestra la probabilidad de suscripción (yes).")
+            st.caption("La barra representa la probabilidad de suscripción (yes).")
 
         except Exception as e:
-            st.error("Ocurrió un error al predecir. Revisa que el dataset/modelo correspondan a las mismas columnas.")
+            st.error(
+                "Ocurrió un error al predecir. Revisa que el dataset y el modelo correspondan a las mismas columnas."
+            )
             st.exception(e)
 
-st.caption("Modelo guardado en `model.joblib` y usado directamente por la app. (Sin `duration` para evitar leakage).")
+st.caption(
+    "Modelo cargado desde `model.joblib` y usado por la app. (Se excluye `duration` para evitar data leakage)."
+)
